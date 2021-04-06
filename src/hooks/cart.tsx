@@ -25,28 +25,65 @@ interface CartContext {
 
 const CartContext = createContext<CartContext | null>(null);
 
+const STORAGE_KEY = '@APP-DESAFIO/Cart2'
+
 const CartProvider: React.FC = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
 
+  const save = useCallback(async data => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  }, [])
+
+  async function addToCart(product: Product) {
+    const productExists = products.findIndex(item => item.id === product.id)
+    if (productExists === -1) {
+      product.quantity = 1
+      await save([ ...products, product ])
+      setProducts(old => {
+        return [...old, product]
+      })
+    } else {
+      increment(product.id)
+    }
+  }
+
+  async function increment(id: string) {
+    const updatedProducts: Product[] = []
+    for (const product of products) {
+      if (product.id === id) {
+        product.quantity += 1
+      }
+      updatedProducts.push(product)
+    }
+    setProducts(updatedProducts)
+    await save(updatedProducts)
+  }
+
+  async function decrement(id: string) {
+    const updatedProducts: Product[] = []
+    for (const product of products) {
+      if (product.id === id) {
+        product.quantity -= 1
+      }
+      if (product.quantity > 0) {
+        updatedProducts.push(product)
+      }
+    }
+    setProducts(updatedProducts)
+    await save(updatedProducts)
+  }
+
   useEffect(() => {
-    async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+    async function loadCartFromStorage(): Promise<void> {
+      const storagedProductsString = await AsyncStorage.getItem(STORAGE_KEY)
+      if (storagedProductsString) {
+        const storagedProducts = await JSON.parse(storagedProductsString)
+        setProducts(storagedProducts)
+      }
     }
 
-    loadProducts();
-  }, []);
-
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
-
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
-
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+    loadCartFromStorage();
+  }, [setProducts, STORAGE_KEY]);
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
